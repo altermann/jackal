@@ -9,6 +9,9 @@ import { TurnPhase } from "./core/TurnManager.js";
 
 import cardBack from "./assets/cardB.png";
 import cardGold from "./assets/cardG.png";
+import cardLose from "./assets/cardF.png";
+import cardPass from "./assets/cardN.png";
+import backgroundTile from "./assets/BackGround.png";
 
 const PLAYER_RADIUS = 14;
 
@@ -20,9 +23,14 @@ export default class GameScene extends Phaser.Scene {
     preload() {
         this.load.image("cardBack", cardBack);
         this.load.image("cardGold", cardGold);
+        this.load.image("cardLose", cardLose);
+        this.load.image("cardPass", cardPass);
+        this.load.image("backgroundTile", backgroundTile);
     }
 
     create() {
+        this.drawBackground();
+
         this.gameManager = new GameManager();
         this.cardSprites = [];
         this.playerTokens = [];
@@ -46,22 +54,39 @@ export default class GameScene extends Phaser.Scene {
         ).setOrigin(0.5);
     }
 
+    drawBackground() {
+        const { width, height } = this.scale;
+
+        this.background = this.add.tileSprite(0, 0, width, height, "backgroundTile")
+            .setOrigin(0, 0)
+            .setScrollFactor(0)
+            .setDepth(-1);
+
+        this.scale.on("resize", this.resizeBackground, this);
+    }
+
+    resizeBackground(gameSize) {
+        this.background.setSize(gameSize.width, gameSize.height);
+    }
+
     computeLayout() {
         const w = this.scale.width;
         const h = this.scale.height;
         const padding = 16;
         const headerH = 72;
         const footerH = 100;
+        const cardGap = 8;
 
-        const boardW = w - padding * 2;
-        const boardH = h - headerH - footerH - padding * 2;
-        const cellW = Math.floor(boardW / BOARD_COLS);
-        const cellH = Math.floor(boardH / BOARD_ROWS);
-        const cardW = Math.min(cellW - 8, 72);
-        const cardH = Math.min(cellH - 8, 96);
-
-        const boardLeft = (w - cellW * BOARD_COLS) / 2;
-        const boardTop = headerH + padding;
+        const availableW = w - padding * 2;
+        const availableH = h - headerH - footerH - padding * 2;
+        const cellSize = Math.floor(
+            Math.min(availableW / BOARD_COLS, availableH / BOARD_ROWS)
+        );
+        const cardSize = Math.max(cellSize - cardGap, 1);
+        const boardWidth = cellSize * BOARD_COLS;
+        const boardHeight = cellSize * BOARD_ROWS;
+        const boardLeft = (w - boardWidth) / 2;
+        const boardTop = headerH + (h - headerH - footerH - boardHeight) / 2;
 
         return {
             headerY: 36,
@@ -69,10 +94,16 @@ export default class GameScene extends Phaser.Scene {
             buttonY: h - footerH / 2 - 8,
             boardLeft,
             boardTop,
-            cellW,
-            cellH,
-            cardW,
-            cardH
+            cellSize,
+            cardSize
+        };
+    }
+
+    getCellCenter(col, row) {
+        const { boardLeft, boardTop, cellSize } = this.layout;
+        return {
+            x: boardLeft + col * cellSize + cellSize / 2,
+            y: boardTop + row * cellSize + cellSize / 2
         };
     }
 
@@ -94,7 +125,7 @@ export default class GameScene extends Phaser.Scene {
             }).setOrigin(0.5);
         });
 
-        this.turnIndicator = this.add.text(w / 2, headerY + 14, "", {
+        this.turnIndicator = this.add.text(w / 2, headerY + 40, "", {
             fontSize: "14px",
             color: "#bdc3c7"
         }).setOrigin(0.5);
@@ -104,19 +135,18 @@ export default class GameScene extends Phaser.Scene {
 
     drawBoard() {
         const gm = this.gameManager;
-        const { boardLeft, boardTop, cellW, cellH, cardW, cardH } = this.layout;
+        const { cardSize } = this.layout;
 
         for (let row = 0; row < BOARD_ROWS; row++) {
             for (let col = 0; col < BOARD_COLS; col++) {
                 const cell = gm.getCellAtGrid(col, row);
                 const pathIdx = gm.getPathIndexForGrid(col, row);
-                const cx = boardLeft + col * cellW + cellW / 2;
-                const cy = boardTop + row * cellH + cellH / 2;
+                const { x: cx, y: cy } = this.getCellCenter(col, row);
 
                 const sprite = this.add.image(cx, cy, "cardBack")
-                    .setDisplaySize(cardW, cardH);
+                    .setDisplaySize(cardSize, cardSize);
 
-                const stepLabel = this.add.text(cx, cy - cardH / 2 - 6, `${pathIdx + 1}`, {
+                const stepLabel = this.add.text(cx, cy - cardSize / 2 - 6, `${pathIdx + 1}`, {
                     fontSize: "11px",
                     color: "#7f8c8d"
                 }).setOrigin(0.5);
@@ -238,21 +268,19 @@ export default class GameScene extends Phaser.Scene {
         if (!entry) return;
 
         entry.overlay.setVisible(true);
+        entry.sprite.clearTint();
 
         if (cell.type === CellType.GOLD) {
             entry.sprite.setTexture("cardGold");
             entry.overlay.setText(`+${cell.value}`);
             entry.overlay.setColor("#f1c40f");
         } else if (cell.type === CellType.LOSE) {
-            entry.sprite.setTexture("cardBack");
-            entry.sprite.setTint(0xff6666);
+            entry.sprite.setTexture("cardLose");
             entry.overlay.setText(`-${cell.value}`);
             entry.overlay.setColor("#e74c3c");
         } else {
-            entry.sprite.setTexture("cardBack");
-            entry.sprite.setTint(0x888888);
-            entry.overlay.setText("—");
-            entry.overlay.setColor("#bdc3c7");
+            entry.sprite.setTexture("cardPass");
+            entry.overlay.setVisible(false);
         }
     }
 
@@ -264,19 +292,18 @@ export default class GameScene extends Phaser.Scene {
 
     refreshTokenPositionsForPlayer(playerId, position) {
         const gm = this.gameManager;
-        const { boardLeft, boardTop, cellW, cellH } = this.layout;
+        const { cardSize } = this.layout;
         const boardIndex = gm.path[position];
         const col = boardIndex % BOARD_COLS;
         const row = Math.floor(boardIndex / BOARD_COLS);
-        const cx = boardLeft + col * cellW + cellW / 2;
-        const cy = boardTop + row * cellH + cellH / 2;
+        const { x: cx, y: cy } = this.getCellCenter(col, row);
         const offsetX = playerId === 0 ? -12 : 12;
 
         this.playerTokens
             .filter((t) => t.playerId === playerId)
             .forEach(({ token, label }) => {
-                token.setPosition(cx + offsetX, cy + cellH * 0.28);
-                label.setPosition(cx + offsetX, cy + cellH * 0.28);
+                token.setPosition(cx + offsetX, cy + cardSize * 0.18);
+                label.setPosition(cx + offsetX, cy + cardSize * 0.18);
             });
     }
 
