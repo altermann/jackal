@@ -11,6 +11,8 @@ import cardBack from "./assets/cardB.png";
 import cardGold from "./assets/cardG.png";
 import cardLose from "./assets/cardF.png";
 import cardPass from "./assets/cardN.png";
+import cardBackStep from "./assets/cardJ.png";
+import cardDock from "./assets/cardD.png";
 import backgroundTile from "./assets/BackGround.png";
 import charT from "./assets/charTs.png";
 import charP from "./assets/charPs.png";
@@ -27,6 +29,8 @@ export default class GameScene extends Phaser.Scene {
         this.load.image("cardGold", cardGold);
         this.load.image("cardLose", cardLose);
         this.load.image("cardPass", cardPass);
+        this.load.image("cardBackStep", cardBackStep);
+        this.load.image("cardDock", cardDock);
         this.load.image("backgroundTile", backgroundTile);
         this.load.image("charT", charT);
         this.load.image("charP", charP);
@@ -61,11 +65,12 @@ export default class GameScene extends Phaser.Scene {
     drawBackground() {
         const { width, height } = this.scale;
 
-        this.background = this.add.tileSprite(0, 0, width, height, "backgroundTile")
+        this.background = this.add.image(0, 0, "backgroundTile")
             .setOrigin(0, 0)
             .setScrollFactor(0)
             .setDepth(-1);
 
+        this.background.setDisplaySize(width, height);
         this.scale.on("resize", this.resizeBackground, this);
     }
 
@@ -157,22 +162,22 @@ export default class GameScene extends Phaser.Scene {
         const { headerY } = this.layout;
         const w = this.scale.width;
 
-        this.add.text(w / 2, headerY - 18, "Шакал", {
-            fontSize: "22px",
+        this.add.text(w / 2, headerY - 0, "Gold race", {
+            fontSize: "40px",
             color: "#f1c40f",
             fontStyle: "bold"
         }).setOrigin(0.5);
 
         this.goldTexts = this.gameManager.players.map((player, i) => {
             const x = i === 0 ? w * 0.25 : w * 0.75;
-            return this.add.text(x, headerY + 14, `${player.name}: 0`, {
-                fontSize: "16px",
+            return this.add.text(x, headerY + 100, `${player.name}: 0`, {
+                fontSize: "33px",
                 color: `#${player.color.toString(16).padStart(6, "0")}`
             }).setOrigin(0.5);
         });
 
         this.turnIndicator = this.add.text(w / 2, headerY + 40, "", {
-            fontSize: "14px",
+            fontSize: "22px",
             color: "#bdc3c7"
         }).setOrigin(0.5);
 
@@ -192,8 +197,9 @@ export default class GameScene extends Phaser.Scene {
                 const sprite = this.add.image(cx, cy, "cardBack")
                     .setDisplaySize(cardSize, cardSize);
 
-                const stepLabel = this.add.text(cx, cy - cardSize / 2 - 6, `${pathIdx + 1}`, {
-                    fontSize: "11px",
+                const stepLabel = this.add.text(cx, cy + cardSize/3, `${pathIdx + 1}`, {
+                    fontSize: "60px",
+                    fontStyle: "bold",
                     color: "#7f8c8d"
                 }).setOrigin(0.5);
 
@@ -208,6 +214,12 @@ export default class GameScene extends Phaser.Scene {
                 this.cardSprites.push({ col, row, sprite, overlay, cell, stepLabel });
             }
         }
+
+        this.cardSprites.forEach(({ cell }) => {
+            if (cell.isOpen) {
+                this.refreshCardVisual(cell);
+            }
+        });
     }
 
     drawPlayerTokens() {
@@ -231,16 +243,16 @@ export default class GameScene extends Phaser.Scene {
         const w = this.scale.width;
         const { buttonY } = this.layout;
 
-        this.rollButton = this.add.rectangle(w / 2, buttonY, 200, 52, 0x27ae60)
+        this.rollButton = this.add.rectangle(w / 2, buttonY-70, 200, 52, 0x27ae60)
             .setInteractive({ useHandCursor: true });
 
-        this.rollLabel = this.add.text(w / 2, buttonY, "Бросить кубик", {
+        this.rollLabel = this.add.text(w / 2, buttonY-70, "Бросить кубик", {
             fontSize: "18px",
             color: "#ffffff",
             fontStyle: "bold"
         }).setOrigin(0.5);
 
-        this.diceText = this.add.text(w / 2, buttonY - 36, "", {
+        this.diceText = this.add.text(w / 2, buttonY-50, "", {
             fontSize: "28px",
             color: "#f39c12",
             fontStyle: "bold"
@@ -260,7 +272,7 @@ export default class GameScene extends Phaser.Scene {
         const roll = this.gameManager.roll();
         this.statusText.setText(this.gameManager.message);
 
-        this.time.delayedCall(400, () => {
+        this.time.delayedCall(200, () => {
             this.diceText.setText(String(roll));
             this.animateMove(roll);
         });
@@ -295,19 +307,48 @@ export default class GameScene extends Phaser.Scene {
         this.updateHeader();
         this.statusText.setText(this.gameManager.message);
 
-        this.time.delayedCall(900, () => {
-            this.gameManager.endTurn();
-            this.updateHeader();
-            this.statusText.setText(this.gameManager.message);
-            this.diceText.setText("");
-            this.rollButton.setFillStyle(0x27ae60);
-            this.isAnimating = false;
+        const finishTurn = () => {
+            this.time.delayedCall(900, () => {
+                this.gameManager.endTurn();
+                this.updateHeader();
+                this.statusText.setText(this.gameManager.message);
+                this.diceText.setText("");
+                this.rollButton.setFillStyle(0x27ae60);
+                this.isAnimating = false;
 
-            if (this.gameManager.turnManager.phase === TurnPhase.GAME_OVER) {
-                this.rollButton.disableInteractive();
-                this.rollLabel.setText("Игра окончена");
+                if (this.gameManager.turnManager.phase === TurnPhase.GAME_OVER) {
+                    this.rollButton.disableInteractive();
+                    this.rollLabel.setText("Игра окончена");
+                }
+            });
+        };
+
+        if (result.stepBack > 0) {
+            this.animateStepBack(result.stepBack, finishTurn);
+        } else {
+            finishTurn();
+        }
+    }
+
+    animateStepBack(steps, onComplete) {
+        const gm = this.gameManager;
+        const player = gm.turnManager.currentPlayer;
+        const targetPos = player.position;
+        let visualPos = targetPos + steps;
+
+        const moveOne = () => {
+            if (visualPos <= targetPos) {
+                this.refreshTokenPositionsForPlayer(player.id, targetPos, true);
+                onComplete();
+                return;
             }
-        });
+
+            visualPos--;
+            this.refreshTokenPositionsForPlayer(player.id, visualPos, true);
+            this.time.delayedCall(180, moveOne);
+        };
+
+        moveOne();
     }
 
     refreshCardVisual(cell) {
@@ -327,6 +368,12 @@ export default class GameScene extends Phaser.Scene {
             entry.sprite.setTexture("cardLose");
             entry.overlay.setText(`-${cell.value}`);
             entry.overlay.setColor("#e74c3c");
+        } else if (cell.type === CellType.BACK) {
+            entry.sprite.setTexture("cardBackStep");
+            entry.overlay.setVisible(false);
+        } else if (cell.type === CellType.DOCK) {
+            entry.sprite.setTexture("cardDock");
+            entry.overlay.setVisible(false);
         } else {
             entry.sprite.setTexture("cardPass");
             entry.overlay.setVisible(false);
@@ -346,11 +393,12 @@ export default class GameScene extends Phaser.Scene {
         const { col, row } = this.getGridFromBoardIndex(boardIndex);
         const { x: cx, y: cy } = this.getCellCenter(col, row);
         const offsetX = playerId === 0 ? -cardSize * 0.14 : cardSize * 0.14;
+        const offsetY = playerId === 0 ? -cardSize * 0.14 : cardSize * 0.14;
 
         this.playerTokens
             .filter((t) => t.playerId === playerId)
             .forEach(({ token }) => {
-                token.setPosition(cx + offsetX, cy + cardSize * 0.12);
+                token.setPosition(cx + offsetX, cy + offsetY);
                 this.applyTokenFlip(token, row, animate);
             });
     }

@@ -1,7 +1,9 @@
 export const CellType = {
     GOLD: "gold",
     LOSE: "lose",
-    PASS: "pass"
+    PASS: "pass",
+    BACK: "back",
+    DOCK: "dock"
 };
 
 export class Cell {
@@ -18,15 +20,19 @@ export class Cell {
 
 export function createBoardDeck(size) {
     const deck = [];
-    const goldCount = Math.floor(size * 0.4);
-    const loseCount = Math.floor(size * 0.25);
-    const passCount = size - goldCount - loseCount;
+    const goldCount = Math.floor(size * 0.35);
+    const loseCount = Math.floor(size * 0.2);
+    const backCount = Math.max(2, Math.floor(size * 0.1));
+    const passCount = size - goldCount - loseCount - backCount;
 
     for (let i = 0; i < goldCount; i++) {
         deck.push(new Cell(CellType.GOLD, i % 3 === 0 ? 2 : 1));
     }
     for (let i = 0; i < loseCount; i++) {
         deck.push(new Cell(CellType.LOSE, 1));
+    }
+    for (let i = 0; i < backCount; i++) {
+        deck.push(new Cell(CellType.BACK, 1));
     }
     for (let i = 0; i < passCount; i++) {
         deck.push(new Cell(CellType.PASS, 0));

@@ -1,16 +1,17 @@
-import { createBoardDeck, CellType } from "./Cell.js";
+import { createBoardDeck, CellType, Cell } from "./Cell.js";
 import { Dice } from "./Dice.js";
 import { Player } from "./Player.js";
 import { TurnManager, TurnPhase } from "./TurnManager.js";
 
 export const BOARD_COLS = 4;
-export const BOARD_ROWS = 5;
+export const BOARD_ROWS = 6;
 export const BOARD_SIZE = BOARD_COLS * BOARD_ROWS;
 
 export class GameManager {
     constructor() {
         this.board = createBoardDeck(BOARD_SIZE);
         this.path = buildSnakePath(BOARD_COLS, BOARD_ROWS);
+        this.setupBoundaryCells();
         this.players = [
             new Player(0, "Игрок 1", 0xe74c3c),
             new Player(1, "Игрок 2", 0x3498db)
@@ -58,7 +59,17 @@ export class GameManager {
         }
 
         let delta = 0;
-        if (firstVisit) {
+        let stepBack = 0;
+
+        if (cell.type === CellType.BACK) {
+            const fromPos = player.position;
+            player.position = Math.max(0, player.position - cell.value);
+            stepBack = fromPos - player.position;
+            if (player.position < this.path.length - 1) {
+                player.finished = false;
+            }
+            this.message = stepBack > 0 ? "Шаг назад!" : "Некуда отступать";
+        } else if (firstVisit) {
             if (cell.type === CellType.GOLD) {
                 delta = cell.value;
                 player.addGold(delta);
@@ -67,6 +78,8 @@ export class GameManager {
                 delta = -cell.value;
                 player.addGold(delta);
                 this.message = `-${cell.value} золота!`;
+            } else if (cell.type === CellType.DOCK) {
+                this.message = "Пристань";
             } else {
                 this.message = "Пусто — без изменений";
             }
@@ -74,7 +87,7 @@ export class GameManager {
             this.message = "Клетка уже открыта";
         }
 
-        return { cell, delta, firstVisit };
+        return { cell, delta, firstVisit, stepBack };
     }
 
     endTurn() {
@@ -114,6 +127,17 @@ export class GameManager {
     getPathIndexForGrid(col, row) {
         const boardIndex = row * BOARD_COLS + col;
         return this.path.indexOf(boardIndex);
+    }
+
+    setupBoundaryCells() {
+        const startIndex = this.path[0];
+        const endIndex = this.path[this.path.length - 1];
+
+        [startIndex, endIndex].forEach((boardIndex) => {
+            const cell = new Cell(CellType.DOCK, 0);
+            cell.reveal();
+            this.board[boardIndex] = cell;
+        });
     }
 }
 
