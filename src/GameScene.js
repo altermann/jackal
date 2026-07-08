@@ -12,8 +12,10 @@ import cardGold from "./assets/cardG.png";
 import cardLose from "./assets/cardF.png";
 import cardPass from "./assets/cardN.png";
 import backgroundTile from "./assets/BackGround.png";
+import charT from "./assets/charTs.png";
+import charP from "./assets/charPs.png";
 
-const PLAYER_RADIUS = 14;
+const PLAYER_TEXTURES = ["charT", "charP"];
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -26,6 +28,8 @@ export default class GameScene extends Phaser.Scene {
         this.load.image("cardLose", cardLose);
         this.load.image("cardPass", cardPass);
         this.load.image("backgroundTile", backgroundTile);
+        this.load.image("charT", charT);
+        this.load.image("charP", charP);
     }
 
     create() {
@@ -107,6 +111,48 @@ export default class GameScene extends Phaser.Scene {
         };
     }
 
+    getGridFromBoardIndex(boardIndex) {
+        return {
+            col: boardIndex % BOARD_COLS,
+            row: Math.floor(boardIndex / BOARD_COLS)
+        };
+    }
+
+    shouldFlipForRow(row) {
+        return row % 2 === 1;
+    }
+
+    applyTokenFlip(token, row, animate) {
+        const flipX = this.shouldFlipForRow(row);
+        const entry = this.playerTokens.find((t) => t.token === token);
+        const rowChanged = entry && entry.lastRow !== row;
+
+        if (animate && rowChanged) {
+            const targetScale = Math.abs(token.scaleX);
+            this.tweens.add({
+                targets: token,
+                scaleX: 0,
+                duration: 90,
+                ease: "Power1",
+                onComplete: () => {
+                    token.setFlipX(flipX);
+                    this.tweens.add({
+                        targets: token,
+                        scaleX: targetScale,
+                        duration: 90,
+                        ease: "Power1"
+                    });
+                }
+            });
+        } else {
+            token.setFlipX(flipX);
+        }
+
+        if (entry) {
+            entry.lastRow = row;
+        }
+    }
+
     drawHeader() {
         const { headerY } = this.layout;
         const w = this.scale.width;
@@ -165,15 +211,18 @@ export default class GameScene extends Phaser.Scene {
     }
 
     drawPlayerTokens() {
+        const tokenSize = this.layout.cardSize * 0.42;
+
         this.gameManager.players.forEach((player, i) => {
-            const token = this.add.circle(0, 0, PLAYER_RADIUS, player.color)
-                .setStrokeStyle(2, 0xffffff);
-            const label = this.add.text(0, 0, `${i + 1}`, {
-                fontSize: "12px",
-                color: "#ffffff",
-                fontStyle: "bold"
-            }).setOrigin(0.5);
-            this.playerTokens.push({ token, label, playerId: player.id });
+            const token = this.add.image(0, 0, PLAYER_TEXTURES[i])
+                .setDisplaySize(tokenSize, tokenSize)
+                .setDepth(10);
+
+            this.playerTokens.push({
+                token,
+                playerId: player.id,
+                lastRow: null
+            });
         });
         this.refreshTokenPositions();
     }
@@ -233,7 +282,7 @@ export default class GameScene extends Phaser.Scene {
             }
 
             visualPos++;
-            this.refreshTokenPositionsForPlayer(player.id, visualPos);
+            this.refreshTokenPositionsForPlayer(player.id, visualPos, true);
             this.time.delayedCall(180, moveOne);
         };
 
@@ -290,20 +339,19 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
-    refreshTokenPositionsForPlayer(playerId, position) {
+    refreshTokenPositionsForPlayer(playerId, position, animate = false) {
         const gm = this.gameManager;
         const { cardSize } = this.layout;
         const boardIndex = gm.path[position];
-        const col = boardIndex % BOARD_COLS;
-        const row = Math.floor(boardIndex / BOARD_COLS);
+        const { col, row } = this.getGridFromBoardIndex(boardIndex);
         const { x: cx, y: cy } = this.getCellCenter(col, row);
-        const offsetX = playerId === 0 ? -12 : 12;
+        const offsetX = playerId === 0 ? -cardSize * 0.14 : cardSize * 0.14;
 
         this.playerTokens
             .filter((t) => t.playerId === playerId)
-            .forEach(({ token, label }) => {
-                token.setPosition(cx + offsetX, cy + cardSize * 0.18);
-                label.setPosition(cx + offsetX, cy + cardSize * 0.18);
+            .forEach(({ token }) => {
+                token.setPosition(cx + offsetX, cy + cardSize * 0.12);
+                this.applyTokenFlip(token, row, animate);
             });
     }
 
