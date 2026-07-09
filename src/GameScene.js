@@ -304,6 +304,9 @@ export default class GameScene extends Phaser.Scene {
     resolveLanding() {
         const result = this.gameManager.resolveCell();
         this.refreshCardVisual(result.cell);
+        if (result.firstVisit && result.cell.type === CellType.GOLD) {
+            this.playGoldShine(result.cell);
+        }
         this.updateHeader();
         this.statusText.setText(this.gameManager.message);
 
@@ -378,6 +381,61 @@ export default class GameScene extends Phaser.Scene {
             entry.sprite.setTexture("cardPass");
             entry.overlay.setVisible(false);
         }
+    }
+
+    playGoldShine(cell) {
+        const entry = this.cardSprites.find((c) => c.cell === cell);
+        if (!entry) return;
+
+        const sprite = entry.sprite;
+        const size = this.layout.cardSize;
+        const half = size / 2;
+        const baseScaleX = sprite.scaleX;
+        const baseScaleY = sprite.scaleY;
+
+        this.tweens.add({
+            targets: sprite,
+            scaleX: baseScaleX * 1.1,
+            scaleY: baseScaleY * 1.1,
+            duration: 160,
+            yoyo: true,
+            ease: "Back.easeOut"
+        });
+
+        const shine = this.add.rectangle(
+            sprite.x - size,
+            sprite.y,
+            size * 0.35,
+            size * 1.25,
+            0xffffff,
+            0.75
+        )
+            .setAngle(25)
+            .setDepth(sprite.depth + 1)
+            .setBlendMode(Phaser.BlendModes.ADD);
+
+        shine.enableFilters();
+        const [maskFilter] = Phaser.Actions.AddMaskShape(shine, {
+            shape: "square",
+            region: new Phaser.Geom.Rectangle(
+                sprite.x - half,
+                sprite.y - half,
+                size,
+                size
+            )
+        });
+
+        this.tweens.add({
+            targets: shine,
+            x: sprite.x + size,
+            alpha: 0,
+            duration: 480,
+            ease: "Sine.easeInOut",
+            onComplete: () => {
+                maskFilter?.destroy();
+                shine.destroy();
+            }
+        });
     }
 
     refreshTokenPositions() {
