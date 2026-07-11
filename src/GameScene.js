@@ -7,33 +7,11 @@ import {
 import { CellType } from "./core/Cell.js";
 import { TurnPhase } from "./core/TurnManager.js";
 
-import cardBack from "./assets/cardB.png";
-import cardGold from "./assets/cardG.png";
-import cardLose from "./assets/cardF.png";
-import cardPass from "./assets/cardN.png";
-import cardBackStep from "./assets/cardJ.png";
-import cardDock from "./assets/cardD.png";
-import backgroundTile from "./assets/BackGround.png";
-import charT from "./assets/charTs.png";
-import charP from "./assets/charPs.png";
-
 const PLAYER_TEXTURES = ["charT", "charP"];
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
         super("GameScene");
-    }
-
-    preload() {
-        this.load.image("cardBack", cardBack);
-        this.load.image("cardGold", cardGold);
-        this.load.image("cardLose", cardLose);
-        this.load.image("cardPass", cardPass);
-        this.load.image("cardBackStep", cardBackStep);
-        this.load.image("cardDock", cardDock);
-        this.load.image("backgroundTile", backgroundTile);
-        this.load.image("charT", charT);
-        this.load.image("charP", charP);
     }
 
     create() {
@@ -197,8 +175,8 @@ export default class GameScene extends Phaser.Scene {
                 const sprite = this.add.image(cx, cy, "cardBack")
                     .setDisplaySize(cardSize, cardSize);
 
-                const stepLabel = this.add.text(cx, cy + cardSize/3, `${pathIdx + 1}`, {
-                    fontSize: "60px",
+                const stepLabel = this.add.text(cx - cardSize/3.5, cy + cardSize/3.5, `${pathIdx + 1}`, {
+                    fontSize: "50px",
                     fontStyle: "bold",
                     color: "#7f8c8d"
                 }).setOrigin(0.5);
@@ -294,6 +272,7 @@ export default class GameScene extends Phaser.Scene {
             }
 
             visualPos++;
+            this.sound.play("jump2");
             this.refreshTokenPositionsForPlayer(player.id, visualPos, true);
             this.time.delayedCall(180, moveOne);
         };
@@ -303,9 +282,15 @@ export default class GameScene extends Phaser.Scene {
 
     resolveLanding() {
         const result = this.gameManager.resolveCell();
+        const player = this.gameManager.turnManager.currentPlayer;
         this.refreshCardVisual(result.cell);
         if (result.firstVisit && result.cell.type === CellType.GOLD) {
             this.playGoldShine(result.cell);
+            this.sound.play("getCoins");
+        } else if (result.firstVisit && result.cell.type === CellType.LOSE) {
+            this.sound.play("looseCoins");
+        } else if (player.finished) {
+            this.sound.play("bonus");
         }
         this.updateHeader();
         this.statusText.setText(this.gameManager.message);
@@ -322,6 +307,7 @@ export default class GameScene extends Phaser.Scene {
                 if (this.gameManager.turnManager.phase === TurnPhase.GAME_OVER) {
                     this.rollButton.disableInteractive();
                     this.rollLabel.setText("Игра окончена");
+                    this.time.delayedCall(1200, () => this.showGameOver());
                 }
             });
         };
@@ -347,6 +333,7 @@ export default class GameScene extends Phaser.Scene {
             }
 
             visualPos--;
+            this.sound.play("pushBack2");
             this.refreshTokenPositionsForPlayer(player.id, visualPos, true);
             this.time.delayedCall(180, moveOne);
         };
@@ -476,6 +463,28 @@ export default class GameScene extends Phaser.Scene {
         this.turnIndicator.setText(`Ход: ${current.name}`);
         this.goldTexts.forEach((t, i) => {
             t.setAlpha(i === gm.turnManager.currentIndex ? 1 : 0.5);
+        });
+    }
+
+    showGameOver() {
+        const gm = this.gameManager;
+        const winner = gm.winner;
+
+        this.scene.start("GameOverScene", {
+            winner: winner
+                ? {
+                    id: winner.id,
+                    name: winner.name,
+                    color: winner.color,
+                    gold: winner.gold
+                }
+                : null,
+            players: gm.players.map((player) => ({
+                id: player.id,
+                name: player.name,
+                color: player.color,
+                gold: player.gold
+            }))
         });
     }
 }
