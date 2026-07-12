@@ -6,6 +6,7 @@ import {
 } from "./core/GameManager.js";
 import { CellType } from "./core/Cell.js";
 import { TurnPhase } from "./core/TurnManager.js";
+import { getPathBackTexture } from "./core/PathTextures.js";
 
 const PLAYER_TEXTURES = ["charT", "charP"];
 
@@ -171,8 +172,11 @@ export default class GameScene extends Phaser.Scene {
                 const cell = gm.getCellAtGrid(col, row);
                 const pathIdx = gm.getPathIndexForGrid(col, row);
                 const { x: cx, y: cy } = this.getCellCenter(col, row);
+                const backTexture = pathIdx >= 0
+                    ? getPathBackTexture(gm.path, pathIdx, BOARD_COLS)
+                    : "cardBack";
 
-                const sprite = this.add.image(cx, cy, "cardBack")
+                const sprite = this.add.image(cx, cy, backTexture)
                     .setDisplaySize(cardSize, cardSize);
 
                 const stepLabel = this.add.text(cx - cardSize/3.5, cy + cardSize/3.5, `${pathIdx + 1}`, {
@@ -189,7 +193,15 @@ export default class GameScene extends Phaser.Scene {
                     strokeThickness: 2
                 }).setOrigin(0.5).setVisible(false);
 
-                this.cardSprites.push({ col, row, sprite, overlay, cell, stepLabel });
+                this.cardSprites.push({
+                    col,
+                    row,
+                    sprite,
+                    overlay,
+                    cell,
+                    stepLabel,
+                    backTexture
+                });
             }
         }
 
