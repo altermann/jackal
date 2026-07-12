@@ -112,8 +112,8 @@ export default class GameScene extends Phaser.Scene {
         const boardTop = headerH + padding;
 
         return {
-            headerY: 36,
-            diceY: h - 44,
+            headerY: 16,
+            diceY: h - 110,
             boardLeft,
             boardTop,
             cellSize,
@@ -268,7 +268,7 @@ export default class GameScene extends Phaser.Scene {
         const w = this.scale.width;
         const diceY = this.layout.diceY;
 
-        this.diceButtonSize = Math.min(w * 0.18, 100);
+        this.diceButtonSize = Math.min(w * 0.216, 120);
         this.diceGlow = this.add.circle(
             w / 2,
             diceY,
@@ -281,7 +281,7 @@ export default class GameScene extends Phaser.Scene {
             .setVisible(false);
 
         this.diceGlow.enableFilters();
-        this.diceGlowBlur = this.diceGlow.filters.external.addBlur(0, 10, 10, 1);
+        this.diceGlowBlur = this.diceGlow.filters.external.addBlur(1, 5, 5, 1);
 
         this.rollButton = this.add.image(w / 2, diceY, "dice")
             .setDisplaySize(this.diceButtonSize, this.diceButtonSize)
@@ -386,7 +386,6 @@ export default class GameScene extends Phaser.Scene {
         };
         const tintByState = {
             ready: null,
-            pressed: 0xffffff,
             waiting: 0x666666
         };
         const alphaByState = {
@@ -405,7 +404,12 @@ export default class GameScene extends Phaser.Scene {
 
         const scale = scaleByState[state] ?? 1;
         this.rollButton.setDisplaySize(size * scale, size * scale);
-        this.rollButton.setTint(tintByState[state] ?? 0xffffff);
+
+        if (state === "pressed") {
+            this.updateDicePlayerStyle();
+        } else {
+            this.rollButton.setTint(tintByState[state] ?? 0xffffff);
+        }
 
         this.rollButton.setAlpha(alphaByState[state] ?? 1);
         this.diceText?.setAlpha(alphaByState[state] ?? 1);
