@@ -8,7 +8,7 @@ import { CellType } from "./core/Cell.js";
 import { TurnPhase } from "./core/TurnManager.js";
 import { getPathBackTexture } from "./core/PathTextures.js";
 
-const PLAYER_TEXTURES = ["charT", "charP"];
+const PLAYER_TEXTURES = ["charP", "charT"];
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -28,17 +28,52 @@ export default class GameScene extends Phaser.Scene {
         this.drawBoard();
         this.drawPlayerTokens();
         this.drawRollButton();
-        this.statusText = this.add.text(
-            this.scale.width / 2,
-            this.layout.statusY,
-            this.gameManager.message,
-            {
-                fontSize: "18px",
-                color: "#ecf0f1",
-                align: "center",
-                wordWrap: { width: this.scale.width - 32 }
-            }
-        ).setOrigin(0.5);
+    }
+
+    getBoardCenter() {
+        const { boardLeft, boardTop, cellSize } = this.layout;
+        const boardWidth = cellSize * BOARD_COLS;
+        const boardHeight = cellSize * BOARD_ROWS;
+
+        return {
+            x: boardLeft + boardWidth / 2,
+            y: boardTop + boardHeight / 2,
+            fontSize: Math.floor(cellSize * 1.35)
+        };
+    }
+
+    showBoardMessage(text, color) {
+        this.hideBoardMessage();
+
+        const { x, y, fontSize } = this.getBoardCenter();
+        this.boardMessageText = this.add.text(x, y, text, {
+            fontSize: `${fontSize}px`,
+            color,
+            fontStyle: "bold"
+        }).setOrigin(0.5).setAlpha(0).setDepth(25);
+
+        this.tweens.add({
+            targets: this.boardMessageText,
+            alpha: 0.65,
+            duration: 200,
+            ease: "Sine.easeOut"
+        });
+
+        this.boardMessageTimer = this.time.delayedCall(900, () => {
+            this.tweens.add({
+                targets: this.boardMessageText,
+                alpha: 0,
+                duration: 250,
+                onComplete: () => this.hideBoardMessage()
+            });
+        });
+    }
+
+    hideBoardMessage() {
+        this.boardMessageTimer?.remove();
+        this.boardMessageTimer = null;
+        this.boardMessageText?.destroy();
+        this.boardMessageText = null;
     }
 
     drawBackground() {
@@ -61,8 +96,8 @@ export default class GameScene extends Phaser.Scene {
         const w = this.scale.width;
         const h = this.scale.height;
         const padding = 16;
-        const headerH = 72;
-        const footerH = 100;
+        const headerH = 56;
+        const footerH = 160;
         const cardGap = 8;
 
         const availableW = w - padding * 2;
@@ -74,12 +109,11 @@ export default class GameScene extends Phaser.Scene {
         const boardWidth = cellSize * BOARD_COLS;
         const boardHeight = cellSize * BOARD_ROWS;
         const boardLeft = (w - boardWidth) / 2;
-        const boardTop = headerH + (h - headerH - footerH - boardHeight) / 2;
+        const boardTop = headerH + padding;
 
         return {
             headerY: 36,
-            statusY: h - footerH + 28,
-            buttonY: h - footerH / 2 - 8,
+            diceY: h - 44,
             boardLeft,
             boardTop,
             cellSize,
@@ -141,26 +175,27 @@ export default class GameScene extends Phaser.Scene {
         const { headerY } = this.layout;
         const w = this.scale.width;
 
-        this.add.text(w / 2, headerY - 0, "Gold race", {
-            fontSize: "40px",
-            color: "#f1c40f",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
-
         this.goldTexts = this.gameManager.players.map((player, i) => {
             const x = i === 0 ? w * 0.25 : w * 0.75;
-            return this.add.text(x, headerY + 100, `${player.name}: 0`, {
+            return this.add.text(x, headerY + 24, `${player.name}: 0`, {
                 fontSize: "33px",
                 color: `#${player.color.toString(16).padStart(6, "0")}`
             }).setOrigin(0.5);
         });
 
-        this.turnIndicator = this.add.text(w / 2, headerY + 40, "", {
-            fontSize: "22px",
-            color: "#bdc3c7"
+        this.diceHeaderText = this.add.text(w / 2, headerY + 24, "", {
+            fontSize: "40px",
+            color: "#ffeb3b",
+            fontStyle: "bold"
         }).setOrigin(0.5);
 
         this.updateHeader();
+    }
+
+    setDiceDisplay(value) {
+        const text = value === "" ? "" : String(value);
+        this.diceText?.setText(text);
+        this.diceHeaderText?.setText(text);
     }
 
     drawBoard() {
@@ -180,7 +215,7 @@ export default class GameScene extends Phaser.Scene {
                     .setDisplaySize(cardSize, cardSize);
 
                 const stepLabel = this.add.text(cx - cardSize/3.5, cy + cardSize/3.5, `${pathIdx + 1}`, {
-                    fontSize: "50px",
+                    fontSize: "10px",
                     fontStyle: "bold",
                     color: "#7f8c8d"
                 }).setOrigin(0.5);
@@ -231,24 +266,149 @@ export default class GameScene extends Phaser.Scene {
 
     drawRollButton() {
         const w = this.scale.width;
-        const { buttonY } = this.layout;
+        const diceY = this.layout.diceY;
 
-        this.rollButton = this.add.rectangle(w / 2, buttonY-70, 200, 52, 0x27ae60)
-            .setInteractive({ useHandCursor: true });
+        this.diceButtonSize = Math.min(w * 0.18, 100);
+        this.diceGlow = this.add.circle(
+            w / 2,
+            diceY,
+            this.diceButtonSize * 0.48,
+            0xe74c3c,
+            1
+        )
+            .setAlpha(0)
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setVisible(false);
 
-        this.rollLabel = this.add.text(w / 2, buttonY-70, "Бросить кубик", {
-            fontSize: "18px",
-            color: "#ffffff",
+        this.diceGlow.enableFilters();
+        this.diceGlowBlur = this.diceGlow.filters.external.addBlur(0, 10, 10, 1);
+
+        this.rollButton = this.add.image(w / 2, diceY, "dice")
+            .setDisplaySize(this.diceButtonSize, this.diceButtonSize)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(1);
+
+        this.diceText = this.add.text(w / 2, diceY, "", {
+            fontSize: `${Math.round(this.diceButtonSize * 0.38)}px`,
+            color: "#ffeb3b",
             fontStyle: "bold"
-        }).setOrigin(0.5);
-
-        this.diceText = this.add.text(w / 2, buttonY-50, "", {
-            fontSize: "28px",
-            color: "#f39c12",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(2);
 
         this.rollButton.on("pointerdown", () => this.onRoll());
+        this.setRollButtonState("ready");
+    }
+
+    updateDicePlayerStyle() {
+        if (!this.gameManager) return;
+
+        const player = this.gameManager.turnManager.currentPlayer;
+        this.rollButton?.setTint(player.color);
+        this.diceGlow?.setFillStyle(player.color, 1);
+    }
+
+    startDiceIdleAnimation() {
+        this.stopDiceIdleAnimation();
+
+        const size = this.diceButtonSize;
+        this.rollButton.setDisplaySize(size, size);
+        this.updateDicePlayerStyle();
+
+        this.diceButtonPulseTween = this.tweens.addCounter({
+            from: 0,
+            to: 1,
+            duration: 700,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut",
+            onUpdate: (tween) => {
+                const pulse = tween.getValue();
+                const buttonScale = 1 + pulse * 0.08;
+                this.rollButton.setDisplaySize(
+                    size * buttonScale,
+                    size * buttonScale
+                );
+            }
+        });
+
+        this.diceGlow.setVisible(true);
+        this.playDiceGlowFade(size);
+    }
+
+    playDiceGlowFade(size) {
+        const baseRadius = size * 0.48;
+        this.diceGlow.setRadius(baseRadius);
+        this.diceGlow.setScale(1);
+        this.diceGlow.setAlpha(0.55);
+
+        this.diceGlowFadeTween = this.tweens.add({
+            targets: this.diceGlow,
+            scaleX: 2.15,
+            scaleY: 2.15,
+            alpha: 0,
+            duration: 950,
+            ease: "Sine.easeOut",
+            onComplete: () => {
+                if (this.diceGlow?.visible) {
+                    this.playDiceGlowFade(size);
+                }
+            }
+        });
+    }
+
+    stopDiceIdleAnimation() {
+        if (this.diceButtonPulseTween) {
+            this.diceButtonPulseTween.stop();
+            this.diceButtonPulseTween.remove();
+            this.diceButtonPulseTween = null;
+        }
+
+        if (this.diceGlowFadeTween) {
+            this.diceGlowFadeTween.stop();
+            this.diceGlowFadeTween.remove();
+            this.diceGlowFadeTween = null;
+        }
+
+        this.tweens.killTweensOf(this.rollButton);
+        this.tweens.killTweensOf(this.diceGlow);
+        this.diceGlow?.setScale(1);
+        this.diceGlow?.setVisible(false);
+        this.diceGlow?.setAlpha(0);
+    }
+
+    setRollButtonState(state) {
+        this.stopDiceIdleAnimation();
+
+        const size = this.diceButtonSize;
+        const scaleByState = {
+            ready: 1,
+            pressed: 1.12,
+            waiting: 0.85
+        };
+        const tintByState = {
+            ready: null,
+            pressed: 0xffffff,
+            waiting: 0x666666
+        };
+        const alphaByState = {
+            ready: 1,
+            pressed: 1,
+            waiting: 0.85
+        };
+
+        if (state === "ready") {
+            this.updateDicePlayerStyle();
+            this.rollButton.setAlpha(1);
+            this.diceText?.setAlpha(1);
+            this.startDiceIdleAnimation();
+            return;
+        }
+
+        const scale = scaleByState[state] ?? 1;
+        this.rollButton.setDisplaySize(size * scale, size * scale);
+        this.rollButton.setTint(tintByState[state] ?? 0xffffff);
+
+        this.rollButton.setAlpha(alphaByState[state] ?? 1);
+        this.diceText?.setAlpha(alphaByState[state] ?? 1);
     }
 
     onRoll() {
@@ -256,14 +416,14 @@ export default class GameScene extends Phaser.Scene {
         if (this.gameManager.turnManager.phase !== TurnPhase.ROLL) return;
 
         this.isAnimating = true;
-        this.rollButton.setFillStyle(0x1e8449);
-        this.diceText.setText("...");
+        this.setRollButtonState("pressed");
+        this.setDiceDisplay("...");
 
         const roll = this.gameManager.roll();
-        this.statusText.setText(this.gameManager.message);
 
         this.time.delayedCall(200, () => {
-            this.diceText.setText(String(roll));
+            this.setRollButtonState("waiting");
+            this.setDiceDisplay(roll);
             this.animateMove(roll);
         });
     }
@@ -297,29 +457,34 @@ export default class GameScene extends Phaser.Scene {
         const player = this.gameManager.turnManager.currentPlayer;
         this.refreshCardVisual(result.cell);
         if (result.firstVisit && result.cell.type === CellType.GOLD) {
+            this.showBoardMessage(`+${result.cell.value}`, "#ffeb3b");
             this.playGoldShine(result.cell);
             this.sound.play("getCoins");
         } else if (result.firstVisit && result.cell.type === CellType.LOSE) {
+            this.showBoardMessage(`-${result.cell.value}`, "#e74c3c");
             this.sound.play("looseCoins");
-        } else if (player.finished) {
+        } else if (result.stepBack > 0) {
+            this.showBoardMessage("Go back!", "#ecf0f1");
+        }
+
+        if (player.finished) {
             this.sound.play("bonus");
         }
         this.updateHeader();
-        this.statusText.setText(this.gameManager.message);
 
         const finishTurn = () => {
             this.time.delayedCall(900, () => {
                 this.gameManager.endTurn();
                 this.updateHeader();
-                this.statusText.setText(this.gameManager.message);
-                this.diceText.setText("");
-                this.rollButton.setFillStyle(0x27ae60);
+                this.setDiceDisplay("");
                 this.isAnimating = false;
 
                 if (this.gameManager.turnManager.phase === TurnPhase.GAME_OVER) {
                     this.rollButton.disableInteractive();
-                    this.rollLabel.setText("Игра окончена");
+                    this.setRollButtonState("waiting");
                     this.time.delayedCall(1200, () => this.showGameOver());
+                } else {
+                    this.setRollButtonState("ready");
                 }
             });
         };
@@ -466,15 +631,10 @@ export default class GameScene extends Phaser.Scene {
             this.goldTexts[i].setText(`${player.name}: ${player.gold} 🪙`);
         });
 
-        if (gm.turnManager.phase === TurnPhase.GAME_OVER) {
-            this.turnIndicator.setText("");
-            return;
-        }
-
-        const current = gm.turnManager.currentPlayer;
-        this.turnIndicator.setText(`Ход: ${current.name}`);
         this.goldTexts.forEach((t, i) => {
-            t.setAlpha(i === gm.turnManager.currentIndex ? 1 : 0.5);
+            const isActive = gm.turnManager.phase !== TurnPhase.GAME_OVER
+                && i === gm.turnManager.currentIndex;
+            t.setAlpha(isActive ? 1 : 0.5);
         });
     }
 

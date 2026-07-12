@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-const WINNER_TEXTURES = ["charT", "charP"];
+const WINNER_TEXTURES = ["charP", "charT"];
 
 export default class GameOverScene extends Phaser.Scene {
     constructor() {
