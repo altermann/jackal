@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import "./fonts.css";
 import PreloadScene from "./PreloadScene.js";
 import MenuScene from "./MenuScene.js";
 import GameScene from "./GameScene.js";

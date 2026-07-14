@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { gameTextStyle } from "./ui/fonts.js";
 
 export default class MenuScene extends Phaser.Scene {
     constructor() {
@@ -15,14 +16,15 @@ export default class MenuScene extends Phaser.Scene {
         banner.setScale(bannerScale);
 
         const buttonY = height * 0.72;
-        const startButton = this.add.rectangle(width / 2, buttonY, 300, 58, 0x27ae60)
+        const buttonWidth = 600;
+        const buttonHeight = 116;
+        const startButton = this.add.rectangle(width / 2, buttonY, buttonWidth, buttonHeight, 0x27ae60)
             .setInteractive({ useHandCursor: true });
 
-        this.add.text(width / 2, buttonY, "Начать игру", {
-            fontSize: "24px",
-            color: "#ffffff",
-            fontStyle: "bold"
-        }).setOrigin(0.5);
+        this.add.text(width / 2, buttonY, "Start game", gameTextStyle({
+            fontSize: "48px",
+            color: "#ffffff"
+        })).setOrigin(0.5);
 
         startButton.on("pointerdown", () => {
             startButton.setFillStyle(0x1e8449);

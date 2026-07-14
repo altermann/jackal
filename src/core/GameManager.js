@@ -13,11 +13,11 @@ export class GameManager {
         this.path = buildSnakePath(BOARD_COLS, BOARD_ROWS);
         this.setupBoundaryCells();
         this.players = [
-            new Player(0, "Игрок 1", 0xe74c3c),
-            new Player(1, "Игрок 2", 0x3498db)
+            new Player(0, "Player 1", 0xe74c3c),
+            new Player(1, "Player 2", 0x3498db)
         ];
         this.turnManager = new TurnManager(this.players);
-        this.message = "Бросьте кубик";
+        this.message = "Roll the dice";
         this.winner = null;
     }
 
@@ -28,7 +28,7 @@ export class GameManager {
 
         const value = Dice.roll();
         this.turnManager.rollDice(value);
-        this.message = `Выпало ${value}. Движение...`;
+        this.message = `Rolled ${value}. Moving...`;
         return value;
     }
 
@@ -68,23 +68,23 @@ export class GameManager {
             if (player.position < this.path.length - 1) {
                 player.finished = false;
             }
-            this.message = stepBack > 0 ? "Шаг назад!" : "Некуда отступать";
+            this.message = stepBack > 0 ? "Step back!" : "Nowhere to retreat";
         } else if (firstVisit) {
             if (cell.type === CellType.GOLD) {
                 delta = cell.value;
                 player.addGold(delta);
-                this.message = `+${delta} золота!`;
+                this.message = `+${delta} gold!`;
             } else if (cell.type === CellType.LOSE) {
                 delta = -cell.value;
                 player.addGold(delta);
-                this.message = `-${cell.value} золота!`;
+                this.message = `-${cell.value} gold!`;
             } else if (cell.type === CellType.DOCK) {
-                this.message = "Пристань";
+                this.message = "Dock";
             } else {
-                this.message = "Пусто — без изменений";
+                this.message = "Empty — no change";
             }
         } else {
-            this.message = "Клетка уже открыта";
+            this.message = "Cell already open";
         }
 
         return { cell, delta, firstVisit, stepBack };
@@ -95,19 +95,19 @@ export class GameManager {
             this.turnManager.phase = TurnPhase.GAME_OVER;
             this.winner = this.getWinner();
             this.message = this.winner
-                ? `${this.winner.name} победил!`
-                : "Ничья!";
+                ? `${this.winner.name} wins!`
+                : "Tie!";
             return null;
         }
 
         const next = this.turnManager.nextTurn();
         if (next) {
-            this.message = `${next.name}: бросьте кубик`;
+            this.message = `${next.name}: roll the dice`;
         } else {
             this.winner = this.getWinner();
             this.message = this.winner
-                ? `${this.winner.name} победил!`
-                : "Ничья!";
+                ? `${this.winner.name} wins!`
+                : "Tie!";
         }
         return next;
     }

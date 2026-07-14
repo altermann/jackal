@@ -7,6 +7,7 @@ import {
 import { CellType } from "./core/Cell.js";
 import { TurnPhase } from "./core/TurnManager.js";
 import { getPathBackTexture } from "./core/PathTextures.js";
+import { gameTextStyle } from "./ui/fonts.js";
 
 const PLAYER_TEXTURES = ["charP", "charT"];
 
@@ -28,6 +29,8 @@ export default class GameScene extends Phaser.Scene {
         this.drawBoard();
         this.drawPlayerTokens();
         this.drawRollButton();
+        this.drawHomeButton();
+        this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.cancelHomeHold, this);
     }
 
     getBoardCenter() {
@@ -46,11 +49,11 @@ export default class GameScene extends Phaser.Scene {
         this.hideBoardMessage();
 
         const { x, y, fontSize } = this.getBoardCenter();
-        this.boardMessageText = this.add.text(x, y, text, {
+        this.boardMessageText = this.add.text(x, y, text, gameTextStyle({
             fontSize: `${fontSize}px`,
             color,
             fontStyle: "bold"
-        }).setOrigin(0.5).setAlpha(0).setDepth(25);
+        })).setOrigin(0.5).setAlpha(0).setDepth(25);
 
         this.tweens.add({
             targets: this.boardMessageText,
@@ -177,17 +180,17 @@ export default class GameScene extends Phaser.Scene {
 
         this.goldTexts = this.gameManager.players.map((player, i) => {
             const x = i === 0 ? w * 0.25 : w * 0.75;
-            return this.add.text(x, headerY + 24, `${player.name}: 0`, {
+            return this.add.text(x, headerY + 24, `${player.name}: 0`, gameTextStyle({
                 fontSize: "33px",
                 color: `#${player.color.toString(16).padStart(6, "0")}`
-            }).setOrigin(0.5);
+            })).setOrigin(0.5);
         });
 
-        this.diceHeaderText = this.add.text(w / 2, headerY + 24, "", {
+        this.diceHeaderText = this.add.text(w / 2, headerY + 24, "", gameTextStyle({
             fontSize: "40px",
             color: "#ffeb3b",
             fontStyle: "bold"
-        }).setOrigin(0.5);
+        })).setOrigin(0.5);
 
         this.updateHeader();
     }
@@ -214,19 +217,19 @@ export default class GameScene extends Phaser.Scene {
                 const sprite = this.add.image(cx, cy, backTexture)
                     .setDisplaySize(cardSize, cardSize);
 
-                const stepLabel = this.add.text(cx - cardSize/3.5, cy + cardSize/3.5, `${pathIdx + 1}`, {
+                const stepLabel = this.add.text(cx - cardSize/3.5, cy + cardSize/3.5, `${pathIdx + 1}`, gameTextStyle({
                     fontSize: "10px",
                     fontStyle: "bold",
                     color: "#7f8c8d"
-                }).setOrigin(0.5);
+                })).setOrigin(0.5);
 
-                const overlay = this.add.text(cx, cy, "", {
+                const overlay = this.add.text(cx, cy, "", gameTextStyle({
                     fontSize: "13px",
                     color: "#ffffff",
                     fontStyle: "bold",
                     stroke: "#000000",
                     strokeThickness: 2
-                }).setOrigin(0.5).setVisible(false);
+                })).setOrigin(0.5).setVisible(false);
 
                 this.cardSprites.push({
                     col,
@@ -288,14 +291,59 @@ export default class GameScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true })
             .setDepth(1);
 
-        this.diceText = this.add.text(w / 2, diceY, "", {
+        this.diceText = this.add.text(w / 2, diceY, "", gameTextStyle({
             fontSize: `${Math.round(this.diceButtonSize * 0.38)}px`,
             color: "#ffeb3b",
             fontStyle: "bold"
-        }).setOrigin(0.5).setDepth(2);
+        })).setOrigin(0.5).setDepth(2);
 
         this.rollButton.on("pointerdown", () => this.onRoll());
         this.setRollButtonState("ready");
+    }
+
+    drawHomeButton() {
+        const size = Math.min(this.scale.width * 0.12, 64);
+        const x = 24 + size / 2;
+        const y = this.scale.height - 44;
+
+        this.homeHoldDuration = 3000;
+        this.homeButton = this.add.image(x, y, "home")
+            .setDisplaySize(size, size)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(20);
+
+        this.homeButton.on("pointerdown", () => this.startHomeHold());
+        this.homeButton.on("pointerup", () => this.cancelHomeHold());
+        this.homeButton.on("pointerout", () => this.cancelHomeHold());
+    }
+
+    startHomeHold() {
+        if (this.homeHoldTween) return;
+
+        this.homeButton.setAlpha(0.65);
+        this.homeHoldTween = this.tweens.addCounter({
+            from: 0,
+            to: 1,
+            duration: this.homeHoldDuration,
+            onUpdate: (tween) => {
+                const progress = tween.getValue();
+                this.homeButton.setAlpha(0.65 + progress * 0.35);
+            },
+            onComplete: () => {
+                this.homeHoldTween = null;
+                this.scene.start("MenuScene");
+            }
+        });
+    }
+
+    cancelHomeHold() {
+        if (this.homeHoldTween) {
+            this.homeHoldTween.stop();
+            this.homeHoldTween.remove();
+            this.homeHoldTween = null;
+        }
+
+        this.homeButton?.setAlpha(1);
     }
 
     updateDicePlayerStyle() {

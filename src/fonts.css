@@ -1,0 +1,13 @@
+@font-face {
+    font-family: "Audex";
+    src: url("./assets/fonts/Audex-1je8g.ttf") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Audex";
+    src: url("./assets/fonts/AudexItalic-nAj3P.ttf") format("truetype");
+    font-weight: normal;
+    font-style: italic;
+}

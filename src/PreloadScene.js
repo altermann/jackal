@@ -15,6 +15,7 @@ import menuBanner from "./assets/menuB.png";
 import charT from "./assets/charTs.png";
 import charP from "./assets/charPs.png";
 import diceImage from "./assets/dice.png";
+import homeImage from "./assets/home.png";
 import jump2Sound from "./assets/sounds/jump2.wav";
 import getCoinsSound from "./assets/sounds/getCoins.wav";
 import looseCoinsSound from "./assets/sounds/looseCoins.wav";
@@ -42,6 +43,7 @@ export default class PreloadScene extends Phaser.Scene {
         this.load.image("charT", charT);
         this.load.image("charP", charP);
         this.load.image("dice", diceImage);
+        this.load.image("home", homeImage);
         this.load.audio("jump2", jump2Sound);
         this.load.audio("getCoins", getCoinsSound);
         this.load.audio("looseCoins", looseCoinsSound);
@@ -50,6 +52,8 @@ export default class PreloadScene extends Phaser.Scene {
     }
 
     create() {
-        this.scene.start("MenuScene");
+        document.fonts.ready.then(() => {
+            this.scene.start("MenuScene");
+        });
     }
 }
